@@ -51,6 +51,15 @@ function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error(`タイムアウト（${ms / 1000}秒）: ${label}`)), ms)
+    ),
+  ])
+}
+
 export async function extractInvoiceData(
   file: File,
   apiKey: string,
@@ -65,10 +74,14 @@ export async function extractInvoiceData(
   let lastError: unknown
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
-      const result = await model.generateContent([
-        EXTRACTION_PROMPT,
-        { inlineData: { data: base64Data, mimeType } },
-      ])
+      const result = await withTimeout(
+        model.generateContent([
+          EXTRACTION_PROMPT,
+          { inlineData: { data: base64Data, mimeType } },
+        ]),
+        60000,
+        file.name
+      )
 
       const text = result.response.text().trim()
       const jsonMatch = text.match(/\{[\s\S]*\}/)

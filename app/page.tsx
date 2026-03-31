@@ -32,6 +32,7 @@ export default function DashboardPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [manualInputs, setManualInputs] = useState<ManualInputs>({ 請求月: '', 請求年月: '' })
   const [isProcessing, setIsProcessing] = useState(false)
+  const [progress, setProgress] = useState({ current: 0, total: 0 })
   const [apiKey, setApiKeyState] = useState('')
   const [template, setTemplate] = useState('')
   const [geminiModel, setGeminiModel] = useState('gemini-2.0-flash-lite')
@@ -146,9 +147,12 @@ export default function DashboardPage() {
     if (pendingItems.length === 0) return
 
     setIsProcessing(true)
+    setProgress({ current: 0, total: pendingItems.length })
     let doneCount = items.filter((i) => i.status === 'done').length
 
-    for (const item of pendingItems) {
+    for (let i = 0; i < pendingItems.length; i++) {
+      const item = pendingItems[i]
+      setProgress({ current: i + 1, total: pendingItems.length })
       setItems((prev) =>
         prev.map((it) => (it.id === item.id ? { ...it, status: 'processing' } : it))
       )
@@ -170,6 +174,7 @@ export default function DashboardPage() {
       }
     }
     setIsProcessing(false)
+    setProgress({ current: 0, total: 0 })
   }
 
   const handleClear = () => {
@@ -251,7 +256,9 @@ export default function DashboardPage() {
                 disabled={isProcessing || pendingCount === 0}
                 className="px-3 py-1.5 bg-blue-600 text-white rounded text-xs font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
-                {isProcessing ? '処理中...' : `OCR処理（${pendingCount}件）`}
+                {isProcessing
+                  ? `処理中... ${progress.current}/${progress.total}`
+                  : `OCR処理（${pendingCount}件）`}
               </button>
               <button
                 onClick={handleClear}
