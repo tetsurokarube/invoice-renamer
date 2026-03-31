@@ -26,19 +26,34 @@ export interface HistoryRecord {
   processedAt: string
 }
 
+// --- Provider ---
+export type OcrProvider = 'gemini' | 'grok'
+
 export const GEMINI_MODELS = [
   { id: 'gemini-2.0-flash-lite', label: 'Gemini 2.0 Flash Lite（推奨・無料枠大）' },
   { id: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash（高精度）' },
   { id: 'gemini-1.5-flash-8b', label: 'Gemini 1.5 Flash 8B（軽量）' },
 ] as const
 
+export const GROK_MODELS = [
+  { id: 'grok-2-vision-1212', label: 'Grok 2 Vision（推奨）' },
+] as const
+
 export type GeminiModelId = typeof GEMINI_MODELS[number]['id']
-export const DEFAULT_MODEL: GeminiModelId = 'gemini-2.0-flash-lite'
+export type GrokModelId = typeof GROK_MODELS[number]['id']
+
+export const DEFAULT_GEMINI_MODEL: GeminiModelId = 'gemini-2.0-flash-lite'
+export const DEFAULT_GROK_MODEL: GrokModelId = 'grok-2-vision-1212'
+/** @deprecated use DEFAULT_GEMINI_MODEL */
+export const DEFAULT_MODEL = DEFAULT_GEMINI_MODEL
 
 export interface Settings {
+  provider: OcrProvider
   geminiApiKey: string
-  namingTemplate: string
   geminiModel: GeminiModelId
+  grokApiKey: string
+  grokModel: GrokModelId
+  namingTemplate: string
 }
 
 export interface ManualInputs {

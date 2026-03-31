@@ -1,11 +1,18 @@
-import { HistoryRecord, Settings, DEFAULT_TEMPLATE, DEFAULT_MODEL } from './types'
+import { HistoryRecord, Settings, DEFAULT_TEMPLATE, DEFAULT_GEMINI_MODEL, DEFAULT_GROK_MODEL } from './types'
 
 const KEYS = {
   settings: 'invoice-renamer:settings',
   history: 'invoice-renamer:history',
 }
 
-const DEFAULT_SETTINGS: Settings = { geminiApiKey: '', namingTemplate: DEFAULT_TEMPLATE, geminiModel: DEFAULT_MODEL }
+const DEFAULT_SETTINGS: Settings = {
+  provider: 'gemini',
+  geminiApiKey: '',
+  geminiModel: DEFAULT_GEMINI_MODEL,
+  grokApiKey: '',
+  grokModel: DEFAULT_GROK_MODEL,
+  namingTemplate: DEFAULT_TEMPLATE,
+}
 
 export function getSettings(): Settings {
   if (typeof window === 'undefined') return DEFAULT_SETTINGS
@@ -35,7 +42,7 @@ export function getHistory(): HistoryRecord[] {
 
 export function addHistoryRecords(records: HistoryRecord[]): void {
   const existing = getHistory()
-  const updated = [...records, ...existing].slice(0, 500) // 最大500件
+  const updated = [...records, ...existing].slice(0, 500)
   localStorage.setItem(KEYS.history, JSON.stringify(updated))
 }
 

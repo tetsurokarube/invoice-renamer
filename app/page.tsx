@@ -6,6 +6,7 @@ import FileDropzone from '@/components/FileDropzone'
 import PreviewTable from '@/components/PreviewTable'
 import { ProcessingItem, ExtractedData, ManualInputs, HistoryRecord } from '@/lib/types'
 import { extractInvoiceData } from '@/lib/gemini'
+import { extractWithGrok } from '@/lib/grok'
 import { applyTemplate } from '@/lib/naming'
 import { getSettings, addHistoryRecords } from '@/lib/storage'
 
@@ -36,12 +37,18 @@ export default function DashboardPage() {
   const [apiKey, setApiKeyState] = useState('')
   const [template, setTemplate] = useState('')
   const [geminiModel, setGeminiModel] = useState('gemini-2.0-flash-lite')
+  const [grokApiKey, setGrokApiKey] = useState('')
+  const [grokModel, setGrokModel] = useState('grok-2-vision-1212')
+  const [provider, setProvider] = useState<'gemini' | 'grok'>('gemini')
 
   useEffect(() => {
     const s = getSettings()
     setApiKeyState(s.geminiApiKey)
     setTemplate(s.namingTemplate)
     setGeminiModel(s.geminiModel)
+    setGrokApiKey(s.grokApiKey)
+    setGrokModel(s.grokModel)
+    setProvider(s.provider)
     const now = new Date()
     const yy = String(now.getFullYear()).slice(2)
     const mm = String(now.getMonth() + 1).padStart(2, '0')
@@ -139,8 +146,12 @@ export default function DashboardPage() {
   }
 
   const handleProcess = async () => {
-    if (!apiKey) {
+    if (provider === 'gemini' && !apiKey) {
       alert('設定画面でGemini APIキーを入力してください。')
+      return
+    }
+    if (provider === 'grok' && !grokApiKey) {
+      alert('設定画面でGrok APIキーを入力してください。')
       return
     }
     const pendingItems = items.filter((i) => i.status === 'pending')
@@ -157,7 +168,9 @@ export default function DashboardPage() {
         prev.map((it) => (it.id === item.id ? { ...it, status: 'processing' } : it))
       )
       try {
-        const extracted = await extractInvoiceData(item.file, apiKey, geminiModel)
+        const extracted = provider === 'grok'
+          ? await extractWithGrok(item.file, grokApiKey, grokModel)
+          : await extractInvoiceData(item.file, apiKey, geminiModel)
         const newName = applyTemplate(template, extracted, manualInputs, doneCount) + getFileExtension(item.originalName)
         doneCount++
         setItems((prev) =>
@@ -193,9 +206,9 @@ export default function DashboardPage() {
         <p className="text-sm text-gray-500 mt-1">請求書をアップロードしてGemini AIで自動リネームします</p>
       </div>
 
-      {!apiKey && (
+      {((provider === 'gemini' && !apiKey) || (provider === 'grok' && !grokApiKey)) && (
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg px-4 py-3 text-sm text-yellow-800">
-          ⚠️ Gemini APIキーが未設定です。<a href="/settings" className="underline font-medium">設定画面</a>から入力してください。
+          ⚠️ {provider === 'grok' ? 'Grok' : 'Gemini'} APIキーが未設定です。<a href="/settings" className="underline font-medium">設定画面</a>から入力してください。
         </div>
       )}
 
