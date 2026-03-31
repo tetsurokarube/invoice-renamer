@@ -54,6 +54,15 @@ export const DEFAULT_GROK_MODEL: GrokModelId = 'grok-2-vision-1212'
 /** @deprecated use DEFAULT_GEMINI_MODEL */
 export const DEFAULT_MODEL = DEFAULT_GEMINI_MODEL
 
+export type CompanyNameRegion = 'top-right' | 'top-left' | 'top' | 'all'
+
+export const COMPANY_NAME_REGIONS = [
+  { id: 'top-right', label: '右上（一般的な日本の請求書）' },
+  { id: 'top-left',  label: '左上' },
+  { id: 'top',       label: '上半分全体' },
+  { id: 'all',       label: '全体から検索' },
+] as const
+
 export interface Settings {
   provider: OcrProvider
   geminiApiKey: string
@@ -61,6 +70,7 @@ export interface Settings {
   grokApiKey: string
   grokModel: GrokModelId
   visionApiKey: string
+  companyNameRegion: CompanyNameRegion
   namingTemplate: string
 }
 

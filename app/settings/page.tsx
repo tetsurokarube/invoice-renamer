@@ -5,8 +5,8 @@ import NamingRuleBuilder from '@/components/NamingRuleBuilder'
 import { getSettings, saveSettings } from '@/lib/storage'
 import {
   DEFAULT_TEMPLATE, DEFAULT_GEMINI_MODEL, DEFAULT_GROK_MODEL,
-  GEMINI_MODELS, GROK_MODELS, OCR_PROVIDERS,
-  GeminiModelId, GrokModelId, OcrProvider, ManualInputs,
+  GEMINI_MODELS, GROK_MODELS, OCR_PROVIDERS, COMPANY_NAME_REGIONS,
+  GeminiModelId, GrokModelId, OcrProvider, CompanyNameRegion, ManualInputs,
 } from '@/lib/types'
 
 export default function SettingsPage() {
@@ -16,6 +16,7 @@ export default function SettingsPage() {
   const [grokApiKey, setGrokApiKey] = useState('')
   const [grokModel, setGrokModel] = useState<GrokModelId>(DEFAULT_GROK_MODEL)
   const [visionApiKey, setVisionApiKey] = useState('')
+  const [companyNameRegion, setCompanyNameRegion] = useState<CompanyNameRegion>('top-right')
   const [template, setTemplate] = useState(DEFAULT_TEMPLATE)
   const [saved, setSaved] = useState(false)
 
@@ -29,11 +30,12 @@ export default function SettingsPage() {
     setGrokApiKey(s.grokApiKey)
     setGrokModel(s.grokModel)
     setVisionApiKey(s.visionApiKey)
+    setCompanyNameRegion(s.companyNameRegion)
     setTemplate(s.namingTemplate)
   }, [])
 
   const handleSave = () => {
-    saveSettings({ provider, geminiApiKey, geminiModel, grokApiKey, grokModel, visionApiKey, namingTemplate: template })
+    saveSettings({ provider, geminiApiKey, geminiModel, grokApiKey, grokModel, visionApiKey, companyNameRegion, namingTemplate: template })
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
   }
@@ -70,9 +72,26 @@ export default function SettingsPage() {
 
       {/* テキスト直接抽出（APIキー不要） */}
       {provider === 'text' && (
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-sm text-green-800">
-          ✅ APIキー不要です。デジタルPDF（会計ソフト出力など）のテキストを直接読み取ります。<br />
-          スキャンPDFや画像には対応していません。
+        <div className="bg-white rounded-lg border border-gray-200 p-5 space-y-4">
+          <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-sm text-green-800">
+            ✅ APIキー不要です。デジタルPDF（会計ソフト出力など）のテキストを直接読み取ります。<br />
+            スキャンPDFや画像には対応していません。
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">取引先名の抽出領域</label>
+            <select
+              value={companyNameRegion}
+              onChange={(e) => setCompanyNameRegion(e.target.value as CompanyNameRegion)}
+              className="border border-gray-300 rounded-md px-3 py-2 text-sm w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              {COMPANY_NAME_REGIONS.map((r) => (
+                <option key={r.id} value={r.id}>{r.label}</option>
+              ))}
+            </select>
+            <p className="text-xs text-gray-400 mt-1">
+              日本の請求書は右上に発行元が記載されることが多いため「右上」がデフォルトです。
+            </p>
+          </div>
         </div>
       )}
 

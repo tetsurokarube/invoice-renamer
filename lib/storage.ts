@@ -12,6 +12,7 @@ const DEFAULT_SETTINGS: Settings = {
   grokApiKey: '',
   grokModel: DEFAULT_GROK_MODEL,
   visionApiKey: '',
+  companyNameRegion: 'top-right',
   namingTemplate: DEFAULT_TEMPLATE,
 }
 

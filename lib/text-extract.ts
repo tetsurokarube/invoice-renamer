@@ -1,11 +1,52 @@
-import { ExtractedData } from './types'
+import { ExtractedData, CompanyNameRegion } from './types'
 
-/** pdfjs-dist でPDFの全テキストを抽出 */
+interface TextItem {
+  str: string
+  x: number  // ページ左端からの距離
+  y: number  // ページ上端からの距離（正規化 0〜1）
+  xRatio: number  // ページ幅に対する比率 0〜1
+  yRatio: number  // ページ高さに対する比率（上=0, 下=1）
+}
+
+async function getPdfjsLib() {
+  const lib = await import('pdfjs-dist')
+  lib.GlobalWorkerOptions.workerSrc =
+    `https://unpkg.com/pdfjs-dist@${lib.version}/build/pdf.worker.min.mjs`
+  return lib
+}
+
+/** PDFの1ページ目からテキストアイテム（座標付き）を取得 */
+async function getTextItems(file: File): Promise<{ items: TextItem[]; pageWidth: number; pageHeight: number }> {
+  const pdfjsLib = await getPdfjsLib()
+  const arrayBuffer = await file.arrayBuffer()
+  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
+  const page = await pdf.getPage(1)
+  const viewport = page.getViewport({ scale: 1 })
+  const content = await page.getTextContent()
+
+  const items: TextItem[] = content.items
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .filter((it: any) => it.str?.trim())
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .map((it: any) => {
+      const x = it.transform[4]
+      const yFromBottom = it.transform[5]
+      const yFromTop = viewport.height - yFromBottom
+      return {
+        str: it.str,
+        x,
+        y: yFromTop,
+        xRatio: x / viewport.width,
+        yRatio: yFromTop / viewport.height,
+      }
+    })
+
+  return { items, pageWidth: viewport.width, pageHeight: viewport.height }
+}
+
+/** 全ページのテキストを結合（金額・日付抽出用） */
 export async function extractTextFromPdf(file: File): Promise<string> {
-  const pdfjsLib = await import('pdfjs-dist')
-  pdfjsLib.GlobalWorkerOptions.workerSrc =
-    `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`
-
+  const pdfjsLib = await getPdfjsLib()
   const arrayBuffer = await file.arrayBuffer()
   const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
 
@@ -17,6 +58,17 @@ export async function extractTextFromPdf(file: File): Promise<string> {
     pages.push(content.items.map((it: any) => it.str ?? '').join('\n'))
   }
   return pages.join('\n')
+}
+
+/** 指定領域のテキストアイテムを絞り込む */
+function filterByRegion(items: TextItem[], region: CompanyNameRegion): TextItem[] {
+  switch (region) {
+    case 'top-right': return items.filter((i) => i.xRatio > 0.5 && i.yRatio < 0.45)
+    case 'top-left':  return items.filter((i) => i.xRatio <= 0.5 && i.yRatio < 0.45)
+    case 'top':       return items.filter((i) => i.yRatio < 0.45)
+    case 'all':
+    default:          return items
+  }
 }
 
 // ---- パース関数群 ----
@@ -45,32 +97,24 @@ function findDateNear(text: string, keywords: string[]): string {
     const idx = text.indexOf(kw)
     if (idx === -1) continue
     const nearby = text.slice(idx, idx + 60)
-
-    // 西暦
     let m = nearby.match(/(\d{4})[年\/\-](\d{1,2})[月\/\-](\d{1,2})/)
     if (m) return toIsoDate(m[1], m[2], m[3])
-
-    // 令和
     m = nearby.match(/令和\s*(\d+)\s*年\s*(\d{1,2})\s*月\s*(\d{1,2})\s*日/)
     if (m) return toIsoDate(String(2018 + parseInt(m[1])), m[2], m[3])
   }
-  // フォールバック：テキスト全体の最初の日付
   const m = text.match(/(\d{4})[年\/\-](\d{1,2})[月\/\-](\d{1,2})/)
   if (m) return toIsoDate(m[1], m[2], m[3])
   return ''
 }
 
-function parseCompanyName(text: string): string {
-  // 宛先（御中・様 の前）を除外リストに
+function parseCompanyNameFromText(text: string): string {
   const recipients = new Set<string>()
   const recipRe = /([^\n]{1,30}?)(御中|様)\s/g
   let m: RegExpExecArray | null
   while ((m = recipRe.exec(text)) !== null) recipients.add(m[1].trim())
-
   const isRecipient = (name: string) =>
     [...recipients].some((r) => name.includes(r) || r.includes(name))
 
-  // 会社名パターン（前置き・後置き両方）
   const patterns = [
     /(株式会社[^\s\n、。,]{1,20})/g,
     /([^\s\n、。,]{1,20}株式会社)/g,
@@ -104,10 +148,9 @@ function parseInvoiceNumber(text: string): string {
   return ''
 }
 
-/** 抽出済みテキストから請求書フィールドをパース */
 export function parseInvoiceText(text: string): ExtractedData {
   return {
-    取引先名: parseCompanyName(text),
+    取引先名: parseCompanyNameFromText(text),
     請求日: findDateNear(text, ['請求日', '発行日', '作成日', '請求書日付']),
     支払期日: findDateNear(text, ['支払期限', '支払期日', 'お支払期限', 'お支払い期限', '振込期限', '入金期限']),
     請求金額: parseAmount(text),
@@ -116,14 +159,33 @@ export function parseInvoiceText(text: string): ExtractedData {
 }
 
 /** PDFテキスト直接抽出のエントリポイント */
-export async function extractFromPdfText(file: File): Promise<ExtractedData> {
+export async function extractFromPdfText(
+  file: File,
+  companyNameRegion: CompanyNameRegion = 'top-right'
+): Promise<ExtractedData> {
   const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')
   if (!isPdf) {
     throw new Error('テキスト直接抽出はPDFのみ対応しています。画像はGemini/GrokまたはVision APIをご利用ください。')
   }
-  const text = await extractTextFromPdf(file)
-  if (!text.trim()) {
+
+  // 座標付きアイテム取得（会社名用）
+  const { items } = await getTextItems(file)
+  if (items.length === 0) {
     throw new Error('PDFにテキストレイヤーがありません（スキャンPDFの可能性）。Vision APIまたはAIプロバイダーをお使いください。')
   }
-  return parseInvoiceText(text)
+
+  // 指定領域のテキストから会社名を抽出
+  const regionItems = filterByRegion(items, companyNameRegion)
+  const regionText = regionItems.map((i) => i.str).join('\n')
+  const companyName = parseCompanyNameFromText(regionText)
+
+  // 全文から金額・日付・番号を抽出
+  const fullText = await extractTextFromPdf(file)
+  const base = parseInvoiceText(fullText)
+
+  return {
+    ...base,
+    // 領域指定で取れた場合はそちらを優先
+    取引先名: companyName || base.取引先名,
+  }
 }

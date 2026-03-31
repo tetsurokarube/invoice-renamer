@@ -43,6 +43,7 @@ export default function DashboardPage() {
   const [grokModel, setGrokModel] = useState('grok-2-vision-1212')
   const [visionApiKey, setVisionApiKey] = useState('')
   const [provider, setProvider] = useState<'text' | 'vision' | 'gemini' | 'grok'>('text')
+  const [companyNameRegion, setCompanyNameRegion] = useState<import('@/lib/types').CompanyNameRegion>('top-right')
 
   useEffect(() => {
     const s = getSettings()
@@ -53,6 +54,7 @@ export default function DashboardPage() {
     setGrokModel(s.grokModel)
     setVisionApiKey(s.visionApiKey)
     setProvider(s.provider)
+    setCompanyNameRegion(s.companyNameRegion)
     const now = new Date()
     const yy = String(now.getFullYear()).slice(2)
     const mm = String(now.getMonth() + 1).padStart(2, '0')
@@ -177,7 +179,7 @@ export default function DashboardPage() {
       )
       try {
         const extracted =
-          provider === 'text'   ? await extractFromPdfText(item.file) :
+          provider === 'text'   ? await extractFromPdfText(item.file, companyNameRegion) :
           provider === 'vision' ? await extractWithVision(item.file, visionApiKey) :
           provider === 'grok'   ? await extractWithGrok(item.file, grokApiKey, grokModel) :
                                   await extractInvoiceData(item.file, apiKey, geminiModel)
