@@ -5,7 +5,7 @@ export async function pdfFirstPageToBase64(file: File): Promise<string> {
   const pdfjsLib = await import('pdfjs-dist')
 
   // CDNのワーカーを使用（Next.jsのpublic配置不要）
-  pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`
+  pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`
 
   const arrayBuffer = await file.arrayBuffer()
   const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
