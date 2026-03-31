@@ -26,9 +26,19 @@ export interface HistoryRecord {
   processedAt: string
 }
 
+export const GEMINI_MODELS = [
+  { id: 'gemini-2.0-flash-lite', label: 'Gemini 2.0 Flash Lite（推奨・無料枠大）' },
+  { id: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash（高精度）' },
+  { id: 'gemini-1.5-flash-8b', label: 'Gemini 1.5 Flash 8B（軽量）' },
+] as const
+
+export type GeminiModelId = typeof GEMINI_MODELS[number]['id']
+export const DEFAULT_MODEL: GeminiModelId = 'gemini-2.0-flash-lite'
+
 export interface Settings {
   geminiApiKey: string
   namingTemplate: string
+  geminiModel: GeminiModelId
 }
 
 export interface ManualInputs {

@@ -3,11 +3,12 @@
 import { useState, useEffect } from 'react'
 import NamingRuleBuilder from '@/components/NamingRuleBuilder'
 import { getSettings, saveSettings } from '@/lib/storage'
-import { DEFAULT_TEMPLATE, ManualInputs } from '@/lib/types'
+import { DEFAULT_TEMPLATE, DEFAULT_MODEL, GEMINI_MODELS, GeminiModelId, ManualInputs } from '@/lib/types'
 
 export default function SettingsPage() {
   const [apiKey, setApiKey] = useState('')
   const [template, setTemplate] = useState(DEFAULT_TEMPLATE)
+  const [geminiModel, setGeminiModel] = useState<GeminiModelId>(DEFAULT_MODEL)
   const [saved, setSaved] = useState(false)
 
   const previewInputs: ManualInputs = { 請求月: '02', 請求年月: '2602' }
@@ -16,10 +17,11 @@ export default function SettingsPage() {
     const s = getSettings()
     setApiKey(s.geminiApiKey)
     setTemplate(s.namingTemplate)
+    setGeminiModel(s.geminiModel)
   }, [])
 
   const handleSave = () => {
-    saveSettings({ geminiApiKey: apiKey, namingTemplate: template })
+    saveSettings({ geminiApiKey: apiKey, namingTemplate: template, geminiModel })
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
   }
@@ -48,6 +50,18 @@ export default function SettingsPage() {
         <p className="text-xs text-gray-400">
           Google AI Studio（aistudio.google.com）でAPIキーを取得してください。キーはこのブラウザにのみ保存されます。
         </p>
+        <div>
+          <label className="block text-xs text-gray-500 mb-1">使用モデル</label>
+          <select
+            value={geminiModel}
+            onChange={(e) => setGeminiModel(e.target.value as GeminiModelId)}
+            className="border border-gray-300 rounded-md px-3 py-2 text-sm w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            {GEMINI_MODELS.map((m) => (
+              <option key={m.id} value={m.id}>{m.label}</option>
+            ))}
+          </select>
+        </div>
       </div>
 
       {/* Naming Rule */}

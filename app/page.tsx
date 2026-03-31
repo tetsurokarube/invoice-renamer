@@ -34,11 +34,13 @@ export default function DashboardPage() {
   const [isProcessing, setIsProcessing] = useState(false)
   const [apiKey, setApiKeyState] = useState('')
   const [template, setTemplate] = useState('')
+  const [geminiModel, setGeminiModel] = useState('gemini-2.0-flash-lite')
 
   useEffect(() => {
     const s = getSettings()
     setApiKeyState(s.geminiApiKey)
     setTemplate(s.namingTemplate)
+    setGeminiModel(s.geminiModel)
     const now = new Date()
     const yy = String(now.getFullYear()).slice(2)
     const mm = String(now.getMonth() + 1).padStart(2, '0')
@@ -151,7 +153,7 @@ export default function DashboardPage() {
         prev.map((it) => (it.id === item.id ? { ...it, status: 'processing' } : it))
       )
       try {
-        const extracted = await extractInvoiceData(item.file, apiKey)
+        const extracted = await extractInvoiceData(item.file, apiKey, geminiModel)
         const newName = applyTemplate(template, extracted, manualInputs, doneCount) + getFileExtension(item.originalName)
         doneCount++
         setItems((prev) =>

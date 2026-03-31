@@ -1,18 +1,20 @@
-import { HistoryRecord, Settings, DEFAULT_TEMPLATE } from './types'
+import { HistoryRecord, Settings, DEFAULT_TEMPLATE, DEFAULT_MODEL } from './types'
 
 const KEYS = {
   settings: 'invoice-renamer:settings',
   history: 'invoice-renamer:history',
 }
 
+const DEFAULT_SETTINGS: Settings = { geminiApiKey: '', namingTemplate: DEFAULT_TEMPLATE, geminiModel: DEFAULT_MODEL }
+
 export function getSettings(): Settings {
-  if (typeof window === 'undefined') return { geminiApiKey: '', namingTemplate: DEFAULT_TEMPLATE }
+  if (typeof window === 'undefined') return DEFAULT_SETTINGS
   try {
     const raw = localStorage.getItem(KEYS.settings)
-    if (!raw) return { geminiApiKey: '', namingTemplate: DEFAULT_TEMPLATE }
-    return JSON.parse(raw)
+    if (!raw) return DEFAULT_SETTINGS
+    return { ...DEFAULT_SETTINGS, ...JSON.parse(raw) }
   } catch {
-    return { geminiApiKey: '', namingTemplate: DEFAULT_TEMPLATE }
+    return DEFAULT_SETTINGS
   }
 }
 

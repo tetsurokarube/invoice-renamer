@@ -44,10 +44,11 @@ function getMimeType(file: File): string {
 
 export async function extractInvoiceData(
   file: File,
-  apiKey: string
+  apiKey: string,
+  modelId = 'gemini-2.0-flash-lite'
 ): Promise<ExtractedData> {
   const genAI = new GoogleGenerativeAI(apiKey)
-  const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' })
+  const model = genAI.getGenerativeModel({ model: modelId })
 
   const base64Data = await fileToBase64(file)
   const mimeType = getMimeType(file)
