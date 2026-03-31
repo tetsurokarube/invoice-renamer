@@ -9,6 +9,7 @@ interface Props {
   onToggleSelectAll: () => void
   onUpdateExtracted: (id: string, data: ExtractedData) => void
   onDownloadOne: (item: ProcessingItem) => void
+  onRemoveOne: (id: string) => void
 }
 
 const statusIcon: Record<string, string> = {
@@ -25,6 +26,7 @@ export default function PreviewTable({
   onToggleSelectAll,
   onUpdateExtracted,
   onDownloadOne,
+  onRemoveOne,
 }: Props) {
   if (items.length === 0) return null
 
@@ -50,7 +52,7 @@ export default function PreviewTable({
             <th className="text-left px-3 py-2 text-xs font-medium text-gray-500">取引先名</th>
             <th className="text-left px-3 py-2 text-xs font-medium text-gray-500">請求日</th>
             <th className="text-left px-3 py-2 text-xs font-medium text-gray-500 min-w-48">新ファイル名</th>
-            <th className="text-left px-3 py-2 text-xs font-medium text-gray-500 w-20"></th>
+            <th className="text-left px-3 py-2 text-xs font-medium text-gray-500 w-24"></th>
           </tr>
         </thead>
         <tbody>
@@ -113,14 +115,26 @@ export default function PreviewTable({
                 )}
               </td>
               <td className="px-3 py-2">
-                {item.status === 'done' && (
-                  <button
-                    onClick={() => onDownloadOne(item)}
-                    className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded hover:bg-green-200 transition-colors whitespace-nowrap"
-                  >
-                    DL
-                  </button>
-                )}
+                <div className="flex items-center gap-1">
+                  {item.status === 'done' && (
+                    <button
+                      onClick={() => onDownloadOne(item)}
+                      className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded hover:bg-green-200 transition-colors whitespace-nowrap"
+                      title="DLして削除"
+                    >
+                      DL
+                    </button>
+                  )}
+                  {item.status !== 'processing' && (
+                    <button
+                      onClick={() => onRemoveOne(item.id)}
+                      className="text-xs px-1.5 py-1 text-gray-300 hover:text-red-400 transition-colors"
+                      title="削除"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
               </td>
             </tr>
           ))}

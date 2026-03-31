@@ -102,9 +102,13 @@ export default function DashboardPage() {
     }
   }
 
+  const removeItems = (ids: string[]) => {
+    setItems((prev) => prev.filter((i) => !ids.includes(i.id)))
+    setSelectedIds((prev) => { const next = new Set(prev); ids.forEach((id) => next.delete(id)); return next })
+  }
+
   const handleDownloadOne = (item: ProcessingItem) => {
     downloadFile(item.file, item.newName)
-    // 履歴保存
     if (item.extractedData) {
       addHistoryRecords([{
         id: generateId(),
@@ -114,7 +118,10 @@ export default function DashboardPage() {
         processedAt: new Date().toISOString(),
       }])
     }
+    removeItems([item.id])
   }
+
+  const handleRemoveOne = (id: string) => removeItems([id])
 
   const handleDownloadSelected = async () => {
     const targets = items.filter((i) => selectedIds.has(i.id) && i.status === 'done')
@@ -147,6 +154,8 @@ export default function DashboardPage() {
         processedAt: new Date().toISOString(),
       }))
     addHistoryRecords(records)
+    // DL済みを一覧から削除
+    removeItems(targets.map((i) => i.id))
   }
 
   const handleProcess = async () => {
@@ -290,6 +299,7 @@ export default function DashboardPage() {
             onToggleSelectAll={handleToggleSelectAll}
             onUpdateExtracted={handleUpdateExtracted}
             onDownloadOne={handleDownloadOne}
+            onRemoveOne={handleRemoveOne}
           />
         </div>
       )}
