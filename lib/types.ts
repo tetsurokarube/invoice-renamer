@@ -27,7 +27,14 @@ export interface HistoryRecord {
 }
 
 // --- Provider ---
-export type OcrProvider = 'gemini' | 'grok'
+export type OcrProvider = 'text' | 'vision' | 'gemini' | 'grok'
+
+export const OCR_PROVIDERS = [
+  { id: 'text',   label: 'テキスト直接抽出', desc: '完全無料・デジタルPDFのみ' },
+  { id: 'vision', label: 'Google Cloud Vision', desc: '月1,000回無料・画像/スキャンPDF対応' },
+  { id: 'gemini', label: 'Google Gemini',  desc: 'AI・高精度' },
+  { id: 'grok',   label: 'xAI Grok',       desc: 'AI・高精度' },
+] as const
 
 export const GEMINI_MODELS = [
   { id: 'gemini-2.0-flash-lite', label: 'Gemini 2.0 Flash Lite（推奨・無料枠大）' },
@@ -53,6 +60,7 @@ export interface Settings {
   geminiModel: GeminiModelId
   grokApiKey: string
   grokModel: GrokModelId
+  visionApiKey: string
   namingTemplate: string
 }
 

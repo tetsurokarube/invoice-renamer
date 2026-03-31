@@ -7,6 +7,8 @@ import PreviewTable from '@/components/PreviewTable'
 import { ProcessingItem, ExtractedData, ManualInputs, HistoryRecord } from '@/lib/types'
 import { extractInvoiceData } from '@/lib/gemini'
 import { extractWithGrok } from '@/lib/grok'
+import { extractFromPdfText } from '@/lib/text-extract'
+import { extractWithVision } from '@/lib/vision'
 import { applyTemplate } from '@/lib/naming'
 import { getSettings, addHistoryRecords } from '@/lib/storage'
 
@@ -39,7 +41,8 @@ export default function DashboardPage() {
   const [geminiModel, setGeminiModel] = useState('gemini-2.0-flash-lite')
   const [grokApiKey, setGrokApiKey] = useState('')
   const [grokModel, setGrokModel] = useState('grok-2-vision-1212')
-  const [provider, setProvider] = useState<'gemini' | 'grok'>('gemini')
+  const [visionApiKey, setVisionApiKey] = useState('')
+  const [provider, setProvider] = useState<'text' | 'vision' | 'gemini' | 'grok'>('text')
 
   useEffect(() => {
     const s = getSettings()
@@ -48,6 +51,7 @@ export default function DashboardPage() {
     setGeminiModel(s.geminiModel)
     setGrokApiKey(s.grokApiKey)
     setGrokModel(s.grokModel)
+    setVisionApiKey(s.visionApiKey)
     setProvider(s.provider)
     const now = new Date()
     const yy = String(now.getFullYear()).slice(2)
@@ -146,14 +150,9 @@ export default function DashboardPage() {
   }
 
   const handleProcess = async () => {
-    if (provider === 'gemini' && !apiKey) {
-      alert('設定画面でGemini APIキーを入力してください。')
-      return
-    }
-    if (provider === 'grok' && !grokApiKey) {
-      alert('設定画面でGrok APIキーを入力してください。')
-      return
-    }
+    if (provider === 'gemini' && !apiKey) { alert('設定画面でGemini APIキーを入力してください。'); return }
+    if (provider === 'grok' && !grokApiKey) { alert('設定画面でGrok APIキーを入力してください。'); return }
+    if (provider === 'vision' && !visionApiKey) { alert('設定画面でVision APIキーを入力してください。'); return }
     const pendingItems = items.filter((i) => i.status === 'pending')
     if (pendingItems.length === 0) return
 
@@ -168,9 +167,11 @@ export default function DashboardPage() {
         prev.map((it) => (it.id === item.id ? { ...it, status: 'processing' } : it))
       )
       try {
-        const extracted = provider === 'grok'
-          ? await extractWithGrok(item.file, grokApiKey, grokModel)
-          : await extractInvoiceData(item.file, apiKey, geminiModel)
+        const extracted =
+          provider === 'text'   ? await extractFromPdfText(item.file) :
+          provider === 'vision' ? await extractWithVision(item.file, visionApiKey) :
+          provider === 'grok'   ? await extractWithGrok(item.file, grokApiKey, grokModel) :
+                                  await extractInvoiceData(item.file, apiKey, geminiModel)
         const newName = applyTemplate(template, extracted, manualInputs, doneCount) + getFileExtension(item.originalName)
         doneCount++
         setItems((prev) =>
@@ -206,9 +207,9 @@ export default function DashboardPage() {
         <p className="text-sm text-gray-500 mt-1">請求書をアップロードしてGemini AIで自動リネームします</p>
       </div>
 
-      {((provider === 'gemini' && !apiKey) || (provider === 'grok' && !grokApiKey)) && (
+      {((provider === 'gemini' && !apiKey) || (provider === 'grok' && !grokApiKey) || (provider === 'vision' && !visionApiKey)) && (
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg px-4 py-3 text-sm text-yellow-800">
-          ⚠️ {provider === 'grok' ? 'Grok' : 'Gemini'} APIキーが未設定です。<a href="/settings" className="underline font-medium">設定画面</a>から入力してください。
+          ⚠️ APIキーが未設定です。<a href="/settings" className="underline font-medium">設定画面</a>から入力してください。
         </div>
       )}
 

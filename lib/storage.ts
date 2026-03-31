@@ -6,11 +6,12 @@ const KEYS = {
 }
 
 const DEFAULT_SETTINGS: Settings = {
-  provider: 'gemini',
+  provider: 'text',
   geminiApiKey: '',
   geminiModel: DEFAULT_GEMINI_MODEL,
   grokApiKey: '',
   grokModel: DEFAULT_GROK_MODEL,
+  visionApiKey: '',
   namingTemplate: DEFAULT_TEMPLATE,
 }
 
