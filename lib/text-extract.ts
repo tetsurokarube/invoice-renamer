@@ -107,28 +107,91 @@ function findDateNear(text: string, keywords: string[]): string {
   return ''
 }
 
-function parseCompanyNameFromText(text: string): string {
+/** 全文から受取人（御中/様付きの名前）を抽出 */
+function extractRecipients(text: string): Set<string> {
   const recipients = new Set<string>()
-  const recipRe = /([^\n]{1,30}?)(御中|様)\s/g
+  const re = /([^\n]{1,30}?)(御中|様)/g
   let m: RegExpExecArray | null
-  while ((m = recipRe.exec(text)) !== null) recipients.add(m[1].trim())
+  while ((m = re.exec(text)) !== null) {
+    const name = m[1].trim()
+    if (name) recipients.add(name)
+  }
+  return recipients
+}
+
+/** 法人・個人名を1つのテキストから抽出（受取人除外あり） */
+function extractNameFromText(text: string, recipients: Set<string>): string {
   const isRecipient = (name: string) =>
     [...recipients].some((r) => name.includes(r) || r.includes(name))
 
-  const patterns = [
-    /(株式会社[^\s\n、。,]{1,20})/g,
-    /([^\s\n、。,]{1,20}株式会社)/g,
-    /(合同会社[^\s\n、。,]{1,20})/g,
-    /([^\s\n、。,]{1,20}合同会社)/g,
-    /(有限会社[^\s\n、。,]{1,20})/g,
-    /([^\s\n、。,]{1,20}有限会社)/g,
-    /(一般社団法人[^\s\n、。,]{1,20})/g,
+  // 法人パターン（前置き・後置き）
+  const legalPatterns = [
+    /(株式会社[^\s\n、。,（()[\]【】]{1,25})/,
+    /([^\s\n、。,（()[\]【】]{1,25}株式会社)/,
+    /(合同会社[^\s\n、。,（()[\]【】]{1,25})/,
+    /([^\s\n、。,（()[\]【】]{1,25}合同会社)/,
+    /(有限会社[^\s\n、。,（()[\]【】]{1,25})/,
+    /([^\s\n、。,（()[\]【】]{1,25}有限会社)/,
+    /(一般社団法人[^\s\n、。,（()[\]【】]{1,25})/,
+    /(一般財団法人[^\s\n、。,（()[\]【】]{1,25})/,
+    /(社会福祉法人[^\s\n、。,（()[\]【】]{1,25})/,
+    /(医療法人[^\s\n、。,（()[\]【】]{1,25})/,
+    /(学校法人[^\s\n、。,（()[\]【】]{1,25})/,
+    /(特定非営利活動法人[^\s\n、。,（()[\]【】]{1,20})/,
+    /(NPO法人[^\s\n、。,（()[\]【】]{1,20})/,
+    /([^\s\n、。,（()[\]【】]{1,20}有限事業組合)/,
   ]
-  for (const pat of patterns) {
-    pat.lastIndex = 0
-    while ((m = pat.exec(text)) !== null) {
+
+  for (const p of legalPatterns) {
+    const m = text.match(p)
+    if (m) {
       const name = m[1].trim()
       if (!isRecipient(name)) return name
+    }
+  }
+  return ''
+}
+
+/** ノイズ行かどうかを判定（住所・電話・URL等） */
+function isNoiseLine(s: string): boolean {
+  return (
+    s.length < 2 ||
+    /^\d/.test(s) ||              // 数字始まり（番地・電話・金額）
+    /^〒/.test(s) ||               // 郵便番号
+    /@/.test(s) ||                 // メールアドレス
+    /https?:/.test(s) ||           // URL
+    /^(TEL|FAX|Tel|Fax|tel|fax)/.test(s) || // 電話/FAX
+    /^(請求書|御請求書|見積書|納品書|領収書|発行日|請求日|担当|代表者名?|所在地|住所)/.test(s) || // 書類名・ラベル
+    /^[ー\-–—\s]+$/.test(s)         // 区切り線のみ
+  )
+}
+
+/**
+ * 右上領域のアイテムから発行元（会社名または個人名）を抽出
+ * 1. 法人名パターンを優先
+ * 2. なければ上から順に走査してノイズでない最初の行を返す
+ */
+function parseIssuerFromItems(items: TextItem[], recipients: Set<string>): string {
+  if (items.length === 0) return ''
+
+  // 上→下、左→右の順にソート
+  const sorted = [...items].sort((a, b) => a.y - b.y || a.x - b.x)
+  const regionText = sorted.map((i) => i.str).join('\n')
+
+  // まず法人名パターンで試みる
+  const byPattern = extractNameFromText(regionText, recipients)
+  if (byPattern) return byPattern
+
+  // パターン未ヒットの場合：上から走査してノイズでない最初の候補を返す
+  const isRecipient = (name: string) =>
+    [...recipients].some((r) => name.includes(r) || r.includes(name))
+
+  for (const item of sorted) {
+    const s = item.str.trim()
+    if (isNoiseLine(s)) continue
+    // 漢字・カナ・英数字を含む実質的なテキスト
+    if (/[\u3040-\u30FF\u4E00-\u9FFF\uFF21-\uFF5AA-Za-z]/.test(s) && !isRecipient(s)) {
+      return s
     }
   }
   return ''
@@ -148,9 +211,10 @@ function parseInvoiceNumber(text: string): string {
   return ''
 }
 
-export function parseInvoiceText(text: string): ExtractedData {
+export function parseInvoiceText(text: string, recipients?: Set<string>): ExtractedData {
+  const recip = recipients ?? extractRecipients(text)
   return {
-    取引先名: parseCompanyNameFromText(text),
+    取引先名: extractNameFromText(text, recip),
     請求日: findDateNear(text, ['請求日', '発行日', '作成日', '請求書日付']),
     支払期日: findDateNear(text, ['支払期限', '支払期日', 'お支払期限', 'お支払い期限', '振込期限', '入金期限']),
     請求金額: parseAmount(text),
@@ -174,18 +238,22 @@ export async function extractFromPdfText(
     throw new Error('PDFにテキストレイヤーがありません（スキャンPDFの可能性）。Vision APIまたはAIプロバイダーをお使いください。')
   }
 
-  // 指定領域のテキストから会社名を抽出
+  // 全文取得（金額・日付・番号 + 受取人判定に使用）
+  const fullText = await extractTextFromPdf(file)
+
+  // 全文から受取人を抽出（御中/様が付く宛先名）
+  const recipients = extractRecipients(fullText)
+
+  // 指定領域のアイテムから発行元名を抽出（受取人を除外）
   const regionItems = filterByRegion(items, companyNameRegion)
-  const regionText = regionItems.map((i) => i.str).join('\n')
-  const companyName = parseCompanyNameFromText(regionText)
+  const issuerName = parseIssuerFromItems(regionItems, recipients)
 
   // 全文から金額・日付・番号を抽出
-  const fullText = await extractTextFromPdf(file)
-  const base = parseInvoiceText(fullText)
+  const base = parseInvoiceText(fullText, recipients)
 
   return {
     ...base,
     // 領域指定で取れた場合はそちらを優先
-    取引先名: companyName || base.取引先名,
+    取引先名: issuerName || base.取引先名,
   }
 }
